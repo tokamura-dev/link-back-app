@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  link-back-app:
+    build:
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/app
+    ports:
+      - 3001:3001
+    tty: true
+    environment:
+      - HOST=0.0.0.0
+      - port=80
+      - CHOKIDAR_USEPOLLING=true

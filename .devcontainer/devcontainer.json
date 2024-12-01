@@ -1,0 +1,16 @@
+{
+  "name": "link-back-app",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "link-back-app",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+        "golang.go"
+      ]
+    }
+  }
+}
