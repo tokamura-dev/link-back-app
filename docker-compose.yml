@@ -4,11 +4,16 @@ services:
     build:
       dockerfile: Dockerfile
     volumes:
-      - ./app:/app
+      - .:/app
     ports:
-      - 3001:3001
+      - 8080:8080
     tty: true
     environment:
       - HOST=0.0.0.0
       - port=80
       - CHOKIDAR_USEPOLLING=true
+
+networks:
+  default:
+    name: link-back-app_connect_mysql_default
+    external: true
