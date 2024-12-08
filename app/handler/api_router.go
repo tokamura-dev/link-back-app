@@ -40,9 +40,7 @@ func GetApiRouter() *gin.Engine {
 						c.JSON(http.StatusOK, gin.H{})
 					})
 					// ユーザー情報削除API
-					users.DELETE("/:userid", func(c *gin.Context) {
-						c.JSON(http.StatusOK, gin.H{})
-					})
+					users.DELETE("/:employeeid", handler.DeleteUsersHandler)
 				}
 			}
 		}

@@ -1,17 +1,20 @@
 package rest
 
 import (
+	"fmt"
+	"link-back-app/api"
 	"link-back-app/models"
 	"link-back-app/usecase"
+	stringutil "link-back-app/utils/string_util"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type UsersHandler interface {
-	GetAllUsersHandler(c *gin.Context)
-	RegisterUsersHandler(c *gin.Context)
+	GetAllUsersHandler(context *gin.Context)
+	RegisterUsersHandler(context *gin.Context)
+	DeleteUsersHandler(context *gin.Context)
 }
 
 func NewUsersHandler(usecase usecase.UsersUsecase) UsersHandler {
@@ -27,31 +30,42 @@ type usersHandlerImpl struct {
 /**
  * ユーザー情報全件取得処理
  */
-func (u *usersHandlerImpl) GetAllUsersHandler(c *gin.Context) {
+func (u *usersHandlerImpl) GetAllUsersHandler(context *gin.Context) {
+	// ユーザー情報を全件取得
 	datas, err := u.usecase.GetAllUsersUsecase()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
+		api.Response(context, http.StatusInternalServerError, nil, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"datas": datas,
-	})
+	api.Response(context, http.StatusOK, datas, "")
 }
 
 /*
  * ユーザー情報登録処理
  */
-func (u *usersHandlerImpl) RegisterUsersHandler(c *gin.Context) {
+func (u *usersHandlerImpl) RegisterUsersHandler(context *gin.Context) {
 	var requestUsers models.RequestUsers
-	if err := validator.New().Struct(&requestUsers); err != nil {
-		errors := make(map[string]string)
-		for _, err := range err.(validator.ValidationErrors) {
-			errors[err.Field()] = err.Tag()
-		}
-		c.JSON(http.StatusBadRequest, gin.H{
-			"errors": errors,
-		})
+	if err := context.ShouldBindJSON(&requestUsers); err != nil {
+		api.Response(context, http.StatusBadRequest, nil, err.Error())
+		return
 	}
+	// ユーザー情報登録処理
+	err := u.usecase.RegisterUsersUsecase(requestUsers)
+	if err != nil {
+		api.Response(context, http.StatusInternalServerError, nil, err.Error())
+		return
+	}
+	// レスポンス処理
+	context.JSON(http.StatusCreated, gin.H{})
+}
+
+/**
+ * ユーザー情報削除処理
+ **/
+func (u *usersHandlerImpl) DeleteUsersHandler(context *gin.Context) {
+	deleteTargetEmployeeId := context.Param("employeeid")
+	if stringutil.IsEmpty(deleteTargetEmployeeId) {
+		api.Response(context, http.StatusBadRequest, nil, "有効な値が指定されていません")
+	}
+	fmt.Println(deleteTargetEmployeeId)
 }
