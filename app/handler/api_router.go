@@ -22,25 +22,25 @@ func GetApiRouter() *gin.Engine {
 			{
 				users := v1.Group("users")
 				{
-					// ユーザー情報全件取得API
 					repo := repository.NewUsersRepository(database.Connect())
 					uc := usecase.NewUsersUsecase(repo)
 					handler := rest.NewUsersHandler(uc)
 
-					users.GET("/", handler.GetAllUsersHandler)
 					// ユーザーID指定のユーザー情報取得API
-					users.GET("/:userid", func(c *gin.Context) {
-						c.JSON(http.StatusOK, gin.H{})
-					})
+					users.GET("/get", handler.GetOneByEmployeeIdUsersHandler)
+					// ユーザー情報全件取得API
+					users.GET("/all_get", handler.GetAllUsersHandler)
 					// ユーザー情報作成API
 					users.POST("/", handler.RegisterUsersHandler)
 
 					// ユーザー情報更新API
-					users.PUT("/:userid", func(c *gin.Context) {
+					users.PUT("/:passparam", func(c *gin.Context) {
 						c.JSON(http.StatusOK, gin.H{})
 					})
+					// ユーザー情報論理削除API
+					users.DELETE("/logical_delete/:passparam", handler.LogicalDeleteUsersHandler)
 					// ユーザー情報削除API
-					users.DELETE("/:employeeid", handler.DeleteUsersHandler)
+					users.DELETE("/:passparam", handler.DeleteUsersHandler)
 				}
 			}
 		}

@@ -1,16 +1,25 @@
 package usecase
 
 import (
+	"database/sql"
+	"link-back-app/api"
 	"link-back-app/domain/repository"
-	"link-back-app/models"
+	usersmodel "link-back-app/models"
 	stringutil "link-back-app/utils/string_util"
 	usersutil "link-back-app/utils/users_util"
+	"net/http"
 	"time"
 )
 
+/** 社員IDの初期値 */
+const INIT_EMPLOYEE_CD = "000001"
+
 type UsersUsecase interface {
+	GetOneByEmployeeIdUsersUsecase(employeeId string) ([]interface{}, error)
 	GetAllUsersUsecase() ([]interface{}, error)
-	RegisterUsersUsecase(requestUsers models.RequestUsers) error
+	RegisterUsersUsecase(requestCreateUsers usersmodel.RequestCreateUsers) error
+	LogicalDeleteUsersUsecase(employeeId string) error
+	DeleteUsersUsecase(employeeId string) error
 }
 
 func NewUsersUsecase(repository repository.UsersRepository) UsersUsecase {
@@ -24,13 +33,26 @@ type usersUsecaseImpl struct {
 }
 
 /**
+ * ユーザー情報1件取得(社員ID指定)
+ **/
+func (u *usersUsecaseImpl) GetOneByEmployeeIdUsersUsecase(employeeId string) ([]interface{}, error) {
+	data, err := u.repository.GetOneByEmployeeIdUsersRepository(employeeId)
+	if err != nil {
+		return nil, api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	var genericData []interface{}
+	genericData = append(genericData, data)
+	return genericData, nil
+}
+
+/**
  * ユーザー情報全件取得処理
  */
 func (u *usersUsecaseImpl) GetAllUsersUsecase() ([]interface{}, error) {
 	// 全件取得処理
 	datas, err := u.repository.GetAllUsersRepository()
 	if err != nil {
-		return nil, err
+		return nil, api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
 	var genericData []interface{}
 	for _, data := range datas {
@@ -42,41 +64,97 @@ func (u *usersUsecaseImpl) GetAllUsersUsecase() ([]interface{}, error) {
 /**
  * ユーザー情報登録処理
  **/
-func (u *usersUsecaseImpl) RegisterUsersUsecase(requestUsers models.RequestUsers) error {
+func (u *usersUsecaseImpl) RegisterUsersUsecase(requestCreateUsers usersmodel.RequestCreateUsers) error {
 	// ユーザー情報テーブルから最新の社員IDを取得する
-	maxEmployeeId, _ := u.repository.GetMaxEmployeeIdUsers()
+	maxEmployeeId, err := u.repository.GetMaxEmployeeIdUsersRepository()
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
 
 	// 最新の社員IDが取得できな場合は"000001"を設定
 	if stringutil.IsEmpty(maxEmployeeId) {
-		maxEmployeeId = "000001"
+		maxEmployeeId = INIT_EMPLOYEE_CD
 	} else {
 		maxEmployeeId = usersutil.GetNextEmployeeId(maxEmployeeId)
 	}
 
 	// ユーザー情報への値設定
-	users := models.Users{
+	users := usersmodel.Users{
 		EmployeeId:        maxEmployeeId,
-		UserLastName:      requestUsers.UserLastName,
-		UserFirstName:     requestUsers.UserFirstName,
-		UserLastNameKana:  requestUsers.UserLastNameKana,
-		UserFirstNamaKana: requestUsers.UserFirstNamaKana,
-		DateOfJoin:        requestUsers.DateOfJoin,
-		BirthDay:          requestUsers.BirthDay,
-		Age:               requestUsers.Age,
-		Gender:            requestUsers.Gender,
-		PhoneNumber:       requestUsers.PhoneNumber,
-		MailAddress:       requestUsers.MailAddress,
-		Zipcode:           requestUsers.Zipcode,
-		Prefcode:          requestUsers.Prefcode,
-		Prefecture:        requestUsers.Prefecture,
-		Municipalities:    requestUsers.Municipalities,
-		Building:          requestUsers.Building,
+		UserLastName:      requestCreateUsers.UserLastName,
+		UserFirstName:     requestCreateUsers.UserFirstName,
+		UserLastNameKana:  requestCreateUsers.UserLastNameKana,
+		UserFirstNamaKana: requestCreateUsers.UserFirstNamaKana,
+		DateOfJoin:        requestCreateUsers.DateOfJoin,
+		BirthDay:          requestCreateUsers.BirthDay,
+		Age:               requestCreateUsers.Age,
+		Gender:            requestCreateUsers.Gender,
+		PhoneNumber:       requestCreateUsers.PhoneNumber,
+		MailAddress:       requestCreateUsers.MailAddress,
+		Zipcode:           requestCreateUsers.Zipcode,
+		Prefcode:          requestCreateUsers.Prefcode,
+		Prefecture:        requestCreateUsers.Prefecture,
+		Municipalities:    requestCreateUsers.Municipalities,
+		Building:          requestCreateUsers.Building,
 		DeleteFlg:         0,
-		CreatedAuthor:     requestUsers.UserLastName + requestUsers.UserFirstName,
+		CreatedAuthor:     requestCreateUsers.UserLastName + requestCreateUsers.UserFirstName,
 		CreatedDate:       time.Now(),
 	}
 
 	// ユーザー情報テーブルへの登録処理
-	err := u.repository.RegisterUsersRepository(users)
-	return err
+	err = u.repository.RegisterUsersRepository(users)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	return nil
+}
+
+/**
+ * ユーザー情報論理削除処理
+ **/
+func (u *usersUsecaseImpl) LogicalDeleteUsersUsecase(employeeId string) error {
+	// ユーザー情報テーブルから社員IDに紐づくユーザー情報が存在するか確認
+	count, err := u.repository.GetExistUsersRepository(employeeId)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	// 社員IDに紐づくユーザー情報が存在しない場合は
+	// エラーとする
+	if count < 1 {
+		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+	}
+	// 社員IDに紐づくユーザー情報を論理削除
+	requestUpdateUsers := usersmodel.RequestUpdateUsers{
+		EmployeeId:    employeeId,
+		DeleteFlg:     1,
+		UpdatedAuthor: "",
+		UpdatedDate:   sql.NullTime{Time: time.Now()},
+	}
+	err = u.repository.LogicalDeleteUsersRepository(requestUpdateUsers)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	return nil
+}
+
+/**
+ * ユーザー情報削除処理
+ **/
+func (u *usersUsecaseImpl) DeleteUsersUsecase(employeeId string) error {
+	// ユーザー情報テーブルから社員IDに紐づくユーザー情報が存在するか確認
+	count, err := u.repository.GetExistUsersRepository(employeeId)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	// 社員IDに紐づくユーザー情報が存在しない場合は
+	// エラーとする
+	if count < 1 {
+		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+	}
+	// 社員IDに紐づくユーザー情報を削除
+	err = u.repository.DeleteUsersRepository(employeeId)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	return nil
 }
