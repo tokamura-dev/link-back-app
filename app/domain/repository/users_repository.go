@@ -12,7 +12,8 @@ type UsersRepository interface {
 	GetOneByEmployeeIdUsersRepository(employeeId string) (usersmodel.Users, error)
 	GetAllUsersRepository() ([]usersmodel.Users, error)
 	RegisterUsersRepository(users usersmodel.Users) error
-	LogicalDeleteUsersRepository(requestUpdateUsers usersmodel.RequestUpdateUsers) error
+	UpdateUsersRepository(users usersmodel.Users) error
+	LogicalDeleteUsersRepository(users usersmodel.Users) error
 	DeleteUsersRepository(employeeId string) error
 }
 
@@ -75,16 +76,26 @@ func (u *usersRepositoryImpl) RegisterUsersRepository(users usersmodel.Users) er
 }
 
 /**
+ * ユーザー情報更新処理
+ **/
+func (u *usersRepositoryImpl) UpdateUsersRepository(users usersmodel.Users) error {
+	err := u.db.Transaction(func(tx *gorm.DB) error {
+		return tx.Model(users).Where("employee_id = ?", &users.EmployeeId).
+			Updates(&users).Error
+	})
+	return err
+}
+
+/**
  * ユーザー情報論理削除処理
  **/
-func (u *usersRepositoryImpl) LogicalDeleteUsersRepository(requestUpdateUsers usersmodel.RequestUpdateUsers) error {
-	var uses usersmodel.Users
+func (u *usersRepositoryImpl) LogicalDeleteUsersRepository(users usersmodel.Users) error {
 	err := u.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Model(&uses).Where("employee_id = ?", requestUpdateUsers.EmployeeId).
+		return tx.Model(users).Where("employee_id = ?", users.EmployeeId).
 			Updates(usersmodel.Users{
-				DeleteFlg:     requestUpdateUsers.DeleteFlg,
-				UpdatedAuthor: requestUpdateUsers.UpdatedAuthor,
-				UpdatedDate:   requestUpdateUsers.UpdatedDate,
+				DeleteFlg:     users.DeleteFlg,
+				UpdatedAuthor: users.UpdatedAuthor,
+				UpdatedDate:   users.UpdatedDate,
 			}).Error
 	})
 	return err

@@ -15,6 +15,7 @@ type UsersHandler interface {
 	GetOneByEmployeeIdUsersHandler(context *gin.Context)
 	GetAllUsersHandler(context *gin.Context)
 	RegisterUsersHandler(context *gin.Context)
+	UpdateUsersHandler(context *gin.Context)
 	LogicalDeleteUsersHandler(context *gin.Context)
 	DeleteUsersHandler(context *gin.Context)
 }
@@ -80,6 +81,24 @@ func (u *usersHandlerImpl) RegisterUsersHandler(context *gin.Context) {
 	}
 	// レスポンス処理
 	context.JSON(http.StatusCreated, gin.H{})
+}
+
+/**
+ * ユーザー情報更新処理
+ **/
+func (u *usersHandlerImpl) UpdateUsersHandler(context *gin.Context) {
+	var users usersmodel.Users
+	if err := context.ShouldBindJSON(&users); err != nil {
+		api.ErrorrResponse(context, http.StatusBadRequest, err.Error())
+		return
+	}
+	// ユーザー情報更新処理
+	err := u.usecase.UpdateUsersUsecase(users)
+	if err != nil {
+		api.ErrorrResponse(context, http.StatusInternalServerError, err.Error())
+		return
+	}
+	context.JSON(http.StatusNoContent, gin.H{})
 }
 
 /**

@@ -1,9 +1,9 @@
 package usecase
 
 import (
-	"database/sql"
 	"link-back-app/api"
 	"link-back-app/domain/repository"
+	"link-back-app/enum"
 	usersmodel "link-back-app/models"
 	stringutil "link-back-app/utils/string_util"
 	usersutil "link-back-app/utils/users_util"
@@ -18,6 +18,7 @@ type UsersUsecase interface {
 	GetOneByEmployeeIdUsersUsecase(employeeId string) ([]interface{}, error)
 	GetAllUsersUsecase() ([]interface{}, error)
 	RegisterUsersUsecase(requestCreateUsers usersmodel.RequestCreateUsers) error
+	UpdateUsersUsecase(users usersmodel.Users) error
 	LogicalDeleteUsersUsecase(employeeId string) error
 	DeleteUsersUsecase(employeeId string) error
 }
@@ -98,11 +99,37 @@ func (u *usersUsecaseImpl) RegisterUsersUsecase(requestCreateUsers usersmodel.Re
 		Building:          requestCreateUsers.Building,
 		DeleteFlg:         0,
 		CreatedAuthor:     requestCreateUsers.UserLastName + requestCreateUsers.UserFirstName,
-		CreatedDate:       time.Now(),
+		CreatedDate:       time.Now().UTC(),
 	}
 
 	// ユーザー情報テーブルへの登録処理
 	err = u.repository.RegisterUsersRepository(users)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	return nil
+}
+
+/**
+ * ユーザー情報更新処理
+ **/
+func (u *usersUsecaseImpl) UpdateUsersUsecase(users usersmodel.Users) error {
+	// ユーザー情報テーブルから社員IDに紐づくユーザー情報が存在するか確認
+	count, err := u.repository.GetExistUsersRepository(users.EmployeeId)
+	if err != nil {
+		return api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	// 社員IDに紐づくユーザー情報が存在しない場合は
+	// エラーとする
+	if count < 1 {
+		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+	}
+	nowTime := time.Now().UTC()
+	users.UpdatedAuthor = ""
+	users.UpdatedDate = &nowTime
+
+	// ユーザー情報更新処理
+	err = u.repository.UpdateUsersRepository(users)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -123,14 +150,16 @@ func (u *usersUsecaseImpl) LogicalDeleteUsersUsecase(employeeId string) error {
 	if count < 1 {
 		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 	}
+
+	nowTime := time.Now().UTC()
 	// 社員IDに紐づくユーザー情報を論理削除
-	requestUpdateUsers := usersmodel.RequestUpdateUsers{
+	users := usersmodel.Users{
 		EmployeeId:    employeeId,
-		DeleteFlg:     1,
+		DeleteFlg:     enum.LogicalDeleteDiv.Deleted.Code,
 		UpdatedAuthor: "",
-		UpdatedDate:   sql.NullTime{Time: time.Now()},
+		UpdatedDate:   &nowTime,
 	}
-	err = u.repository.LogicalDeleteUsersRepository(requestUpdateUsers)
+	err = u.repository.LogicalDeleteUsersRepository(users)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -146,8 +175,7 @@ func (u *usersUsecaseImpl) DeleteUsersUsecase(employeeId string) error {
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
-	// 社員IDに紐づくユーザー情報が存在しない場合は
-	// エラーとする
+	// 社員IDに紐づくユーザー情報が存在しない場合はエラーとする
 	if count < 1 {
 		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 	}

@@ -6,8 +6,6 @@ import (
 	"link-back-app/handler/rest"
 	"link-back-app/usecase"
 
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,11 +30,8 @@ func GetApiRouter() *gin.Engine {
 					users.GET("/all_get", handler.GetAllUsersHandler)
 					// ユーザー情報作成API
 					users.POST("/", handler.RegisterUsersHandler)
-
 					// ユーザー情報更新API
-					users.PUT("/:passparam", func(c *gin.Context) {
-						c.JSON(http.StatusOK, gin.H{})
-					})
+					users.PUT("/", handler.UpdateUsersHandler)
 					// ユーザー情報論理削除API
 					users.DELETE("/logical_delete/:passparam", handler.LogicalDeleteUsersHandler)
 					// ユーザー情報削除API
