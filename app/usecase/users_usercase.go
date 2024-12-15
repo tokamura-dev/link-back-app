@@ -4,15 +4,14 @@ import (
 	"link-back-app/api"
 	"link-back-app/domain/repository"
 	"link-back-app/enum"
-	usersmodel "link-back-app/models"
+	usersmodel "link-back-app/models/users_model"
 	stringutil "link-back-app/utils/string_util"
+	timeutil "link-back-app/utils/time_util"
 	usersutil "link-back-app/utils/users_util"
 	"net/http"
-	"time"
-)
 
-/** 社員IDの初期値 */
-const INIT_EMPLOYEE_CD = "000001"
+	"gorm.io/gorm"
+)
 
 type UsersUsecase interface {
 	GetOneByEmployeeIdUsersUsecase(employeeId string) ([]interface{}, error)
@@ -23,21 +22,23 @@ type UsersUsecase interface {
 	DeleteUsersUsecase(employeeId string) error
 }
 
-func NewUsersUsecase(repository repository.UsersRepository) UsersUsecase {
+func NewUsersUsecase(database *gorm.DB, usersRepository repository.UsersRepository) UsersUsecase {
 	return &usersUsecaseImpl{
-		repository: repository,
+		database:        database,
+		usersRepository: usersRepository,
 	}
 }
 
 type usersUsecaseImpl struct {
-	repository repository.UsersRepository
+	database        *gorm.DB
+	usersRepository repository.UsersRepository
 }
 
 /**
  * ユーザー情報1件取得(社員ID指定)
  **/
 func (u *usersUsecaseImpl) GetOneByEmployeeIdUsersUsecase(employeeId string) ([]interface{}, error) {
-	data, err := u.repository.GetOneByEmployeeIdUsersRepository(employeeId)
+	data, err := u.usersRepository.GetOneByKeyUsersRepository(employeeId)
 	if err != nil {
 		return nil, api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -51,7 +52,7 @@ func (u *usersUsecaseImpl) GetOneByEmployeeIdUsersUsecase(employeeId string) ([]
  */
 func (u *usersUsecaseImpl) GetAllUsersUsecase() ([]interface{}, error) {
 	// 全件取得処理
-	datas, err := u.repository.GetAllUsersRepository()
+	datas, err := u.usersRepository.GetAllUsersRepository()
 	if err != nil {
 		return nil, api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -67,12 +68,12 @@ func (u *usersUsecaseImpl) GetAllUsersUsecase() ([]interface{}, error) {
  **/
 func (u *usersUsecaseImpl) RegisterUsersUsecase(requestCreateUsers usersmodel.RequestCreateUsers) error {
 	// ユーザー情報テーブルから最新の社員IDを取得する
-	maxEmployeeId, err := u.repository.GetMaxEmployeeIdUsersRepository()
+	maxEmployeeId, err := u.usersRepository.GetMaxEmployeeIdUsersRepository()
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
 
-	// 最新の社員IDが取得できな場合は"000001"を設定
+	// 最新の社員IDが取得できない場合は"000001"を設定
 	if stringutil.IsEmpty(maxEmployeeId) {
 		maxEmployeeId = INIT_EMPLOYEE_CD
 	} else {
@@ -99,11 +100,12 @@ func (u *usersUsecaseImpl) RegisterUsersUsecase(requestCreateUsers usersmodel.Re
 		Building:          requestCreateUsers.Building,
 		DeleteFlg:         0,
 		CreatedAuthor:     requestCreateUsers.UserLastName + requestCreateUsers.UserFirstName,
-		CreatedDate:       time.Now().UTC(),
+		CreatedDatetime:   timeutil.GetTimeNow(),
 	}
 
+	tx := u.database.Begin()
 	// ユーザー情報テーブルへの登録処理
-	err = u.repository.RegisterUsersRepository(users)
+	err = u.usersRepository.RegisterUsersRepository(tx, users)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -115,7 +117,7 @@ func (u *usersUsecaseImpl) RegisterUsersUsecase(requestCreateUsers usersmodel.Re
  **/
 func (u *usersUsecaseImpl) UpdateUsersUsecase(users usersmodel.Users) error {
 	// ユーザー情報テーブルから社員IDに紐づくユーザー情報が存在するか確認
-	count, err := u.repository.GetExistUsersRepository(users.EmployeeId)
+	count, err := u.usersRepository.GetExistUsersRepository(users.EmployeeId)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -124,12 +126,13 @@ func (u *usersUsecaseImpl) UpdateUsersUsecase(users usersmodel.Users) error {
 	if count < 1 {
 		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 	}
-	nowTime := time.Now().UTC()
+	nowTime := timeutil.GetTimeNow()
 	users.UpdatedAuthor = ""
-	users.UpdatedDate = &nowTime
+	users.UpdatedDatetime = &nowTime
 
+	tx := u.database.Begin()
 	// ユーザー情報更新処理
-	err = u.repository.UpdateUsersRepository(users)
+	err = u.usersRepository.UpdateUsersRepository(tx, users)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -141,7 +144,7 @@ func (u *usersUsecaseImpl) UpdateUsersUsecase(users usersmodel.Users) error {
  **/
 func (u *usersUsecaseImpl) LogicalDeleteUsersUsecase(employeeId string) error {
 	// ユーザー情報テーブルから社員IDに紐づくユーザー情報が存在するか確認
-	count, err := u.repository.GetExistUsersRepository(employeeId)
+	count, err := u.usersRepository.GetExistUsersRepository(employeeId)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -151,15 +154,16 @@ func (u *usersUsecaseImpl) LogicalDeleteUsersUsecase(employeeId string) error {
 		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 	}
 
-	nowTime := time.Now().UTC()
+	nowTime := timeutil.GetTimeNow()
 	// 社員IDに紐づくユーザー情報を論理削除
 	users := usersmodel.Users{
-		EmployeeId:    employeeId,
-		DeleteFlg:     enum.LogicalDeleteDiv.Deleted.Code,
-		UpdatedAuthor: "",
-		UpdatedDate:   &nowTime,
+		EmployeeId:      employeeId,
+		DeleteFlg:       enum.LogicalDeleteDiv.Deleted.Code,
+		UpdatedAuthor:   "",
+		UpdatedDatetime: &nowTime,
 	}
-	err = u.repository.LogicalDeleteUsersRepository(users)
+	tx := u.database.Begin()
+	err = u.usersRepository.LogicalDeleteUsersRepository(tx, users)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -171,7 +175,7 @@ func (u *usersUsecaseImpl) LogicalDeleteUsersUsecase(employeeId string) error {
  **/
 func (u *usersUsecaseImpl) DeleteUsersUsecase(employeeId string) error {
 	// ユーザー情報テーブルから社員IDに紐づくユーザー情報が存在するか確認
-	count, err := u.repository.GetExistUsersRepository(employeeId)
+	count, err := u.usersRepository.GetExistUsersRepository(employeeId)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
@@ -179,8 +183,9 @@ func (u *usersUsecaseImpl) DeleteUsersUsecase(employeeId string) error {
 	if count < 1 {
 		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 	}
+	tx := u.database.Begin()
 	// 社員IDに紐づくユーザー情報を削除
-	err = u.repository.DeleteUsersRepository(employeeId)
+	err = u.usersRepository.DeleteUsersRepository(tx, employeeId)
 	if err != nil {
 		return api.NewApiError(http.StatusInternalServerError, err.Error())
 	}

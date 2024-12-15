@@ -7,7 +7,7 @@ import (
 
 func Connect() *gorm.DB {
 
-	dsn := "link-db-user:link-db-user@tcp(mysql)/link-ses-db?parseTime=true"
+	dsn := "link-db-user:link-db-user@tcp(mysql)/link-ses-db?parseTime=true&loc=Asia%2FTokyo"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	if err != nil {

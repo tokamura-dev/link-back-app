@@ -1,4 +1,4 @@
-package models
+package usersmodel
 
 import (
 	"time"
@@ -28,9 +28,9 @@ type Users struct {
 	Building          string     `xorm:"building"`             /** 建物 */
 	DeleteFlg         int        `xorm:"delete_flg"`           /** 論理削除フラグ */
 	CreatedAuthor     string     `xorm:"created_author"`       /** 作成者 */
-	CreatedDate       time.Time  `xorm:"created_date"`         /** 作成日時 */
+	CreatedDatetime   time.Time  `xorm:"created_datetime"`     /** 作成日時 */
 	UpdatedAuthor     string     `xorm:"updated_author"`       /** 更新者 */
-	UpdatedDate       *time.Time `xorm:"updated_date"`         /** 更新日時 */
+	UpdatedDatetime   *time.Time `xorm:"updated_datetime"`     /** 更新日時 */
 }
 
 /**

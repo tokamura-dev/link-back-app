@@ -1,7 +1,7 @@
 package repository
 
 import (
-	usersmodel "link-back-app/models"
+	usersmodel "link-back-app/models/users_model"
 
 	"gorm.io/gorm"
 )
@@ -9,22 +9,22 @@ import (
 type UsersRepository interface {
 	GetMaxEmployeeIdUsersRepository() (string, error)
 	GetExistUsersRepository(employeeId string) (int, error)
-	GetOneByEmployeeIdUsersRepository(employeeId string) (usersmodel.Users, error)
+	GetOneByKeyUsersRepository(employeeId string) (usersmodel.Users, error)
 	GetAllUsersRepository() ([]usersmodel.Users, error)
-	RegisterUsersRepository(users usersmodel.Users) error
-	UpdateUsersRepository(users usersmodel.Users) error
-	LogicalDeleteUsersRepository(users usersmodel.Users) error
-	DeleteUsersRepository(employeeId string) error
+	RegisterUsersRepository(tx *gorm.DB, users usersmodel.Users) error
+	UpdateUsersRepository(tx *gorm.DB, users usersmodel.Users) error
+	LogicalDeleteUsersRepository(tx *gorm.DB, users usersmodel.Users) error
+	DeleteUsersRepository(tx *gorm.DB, employeeId string) error
 }
 
-func NewUsersRepository(db *gorm.DB) UsersRepository {
+func NewUsersRepository(database *gorm.DB) UsersRepository {
 	return &usersRepositoryImpl{
-		db: db,
+		database: database,
 	}
 }
 
 type usersRepositoryImpl struct {
-	db *gorm.DB
+	database *gorm.DB
 }
 
 /**
@@ -33,7 +33,7 @@ type usersRepositoryImpl struct {
 func (u *usersRepositoryImpl) GetMaxEmployeeIdUsersRepository() (string, error) {
 	var users usersmodel.Users
 	var maxEmployeeId string
-	err := u.db.Model(&users).Select("COALESCE(MAX(employee_id), '') AS max_employee_id").Scan(&maxEmployeeId).Error
+	err := u.database.Model(&users).Select("COALESCE(MAX(employee_id), '') AS max_employee_id").Scan(&maxEmployeeId).Error
 	return maxEmployeeId, err
 }
 
@@ -43,16 +43,16 @@ func (u *usersRepositoryImpl) GetMaxEmployeeIdUsersRepository() (string, error) 
 func (u *usersRepositoryImpl) GetExistUsersRepository(employeeId string) (int, error) {
 	var users usersmodel.Users
 	var count int
-	err := u.db.Model(&users).Where("employee_id = ?", &employeeId).Select("COUNT(*) AS count").Scan(&count).Error
+	err := u.database.Model(&users).Where("employee_id = ?", &employeeId).Select("COUNT(*) AS count").Scan(&count).Error
 	return count, err
 }
 
 /**
  * ユーザー情報1件取得処理(社員ID指定)
  **/
-func (u *usersRepositoryImpl) GetOneByEmployeeIdUsersRepository(employeeId string) (usersmodel.Users, error) {
+func (u *usersRepositoryImpl) GetOneByKeyUsersRepository(employeeId string) (usersmodel.Users, error) {
 	users := usersmodel.Users{}
-	err := u.db.Debug().Where("employee_id = ?", employeeId).Take(&users).Error
+	err := u.database.Debug().Where("employee_id = ?", employeeId).Take(&users).Error
 	return users, err
 }
 
@@ -61,53 +61,40 @@ func (u *usersRepositoryImpl) GetOneByEmployeeIdUsersRepository(employeeId strin
  */
 func (u *usersRepositoryImpl) GetAllUsersRepository() ([]usersmodel.Users, error) {
 	users := []usersmodel.Users{}
-	err := u.db.Debug().Find(&users).Error
+	err := u.database.Debug().Find(&users).Error
 	return users, err
 }
 
 /**
  * ユーザー情報登録処理
  */
-func (u *usersRepositoryImpl) RegisterUsersRepository(users usersmodel.Users) error {
-	err := u.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Debug().Create(&users).Error
-	})
-	return err
+func (u *usersRepositoryImpl) RegisterUsersRepository(tx *gorm.DB, users usersmodel.Users) error {
+	return tx.Debug().Create(&users).Error
 }
 
 /**
  * ユーザー情報更新処理
  **/
-func (u *usersRepositoryImpl) UpdateUsersRepository(users usersmodel.Users) error {
-	err := u.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Model(users).Where("employee_id = ?", &users.EmployeeId).
-			Updates(&users).Error
-	})
-	return err
+func (u *usersRepositoryImpl) UpdateUsersRepository(tx *gorm.DB, users usersmodel.Users) error {
+	return tx.Model(users).Where("employee_id = ?", &users.EmployeeId).Updates(&users).Error
 }
 
 /**
  * ユーザー情報論理削除処理
  **/
-func (u *usersRepositoryImpl) LogicalDeleteUsersRepository(users usersmodel.Users) error {
-	err := u.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Model(users).Where("employee_id = ?", users.EmployeeId).
-			Updates(usersmodel.Users{
-				DeleteFlg:     users.DeleteFlg,
-				UpdatedAuthor: users.UpdatedAuthor,
-				UpdatedDate:   users.UpdatedDate,
-			}).Error
-	})
-	return err
+func (u *usersRepositoryImpl) LogicalDeleteUsersRepository(tx *gorm.DB, users usersmodel.Users) error {
+	return tx.Model(users).Where("employee_id = ?", users.EmployeeId).
+		Updates(usersmodel.Users{
+			DeleteFlg:       users.DeleteFlg,
+			UpdatedAuthor:   users.UpdatedAuthor,
+			UpdatedDatetime: users.UpdatedDatetime,
+		}).Error
 }
 
 /**
  * ユーザー情報削除処理
  **/
-func (u *usersRepositoryImpl) DeleteUsersRepository(employeeId string) error {
+func (u *usersRepositoryImpl) DeleteUsersRepository(tx *gorm.DB, employeeId string) error {
 	var users usersmodel.Users
-	err := u.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Where("employee_id = ?", employeeId).Delete(&users).Error
-	})
-	return err
+	return tx.Where("employee_id = ?", employeeId).Delete(&users).Error
 }

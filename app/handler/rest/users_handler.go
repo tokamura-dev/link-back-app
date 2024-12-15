@@ -2,7 +2,7 @@ package rest
 
 import (
 	"link-back-app/api"
-	usersmodel "link-back-app/models"
+	usersmodel "link-back-app/models/users_model"
 	"link-back-app/usecase"
 	stringutil "link-back-app/utils/string_util"
 	"net/http"
@@ -46,6 +46,7 @@ func (u *usersHandlerImpl) GetOneByEmployeeIdUsersHandler(context *gin.Context) 
 		}
 		return
 	}
+	// レスポンス処理
 	api.SuccessResponse(context, http.StatusOK, data)
 }
 
@@ -61,6 +62,7 @@ func (u *usersHandlerImpl) GetAllUsersHandler(context *gin.Context) {
 		}
 		return
 	}
+	// レスポンス処理
 	api.SuccessResponse(context, http.StatusOK, datas)
 }
 
@@ -98,6 +100,7 @@ func (u *usersHandlerImpl) UpdateUsersHandler(context *gin.Context) {
 		api.ErrorrResponse(context, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// レスポンス処理
 	context.JSON(http.StatusNoContent, gin.H{})
 }
 
@@ -120,6 +123,7 @@ func (u *usersHandlerImpl) LogicalDeleteUsersHandler(context *gin.Context) {
 		}
 		return
 	}
+	// レスポンス処理
 	context.JSON(http.StatusNoContent, gin.H{})
 }
 
@@ -142,5 +146,6 @@ func (u *usersHandlerImpl) DeleteUsersHandler(context *gin.Context) {
 		}
 		return
 	}
+	// レスポンス処理
 	context.JSON(http.StatusNoContent, gin.H{})
 }
