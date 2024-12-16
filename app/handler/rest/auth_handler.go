@@ -54,14 +54,14 @@ func (a *authHandlerImpl) SignInHandler(context *gin.Context) {
 		api.ErrorrResponse(context, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	authResult, err := a.usecase.SignInUsecase(requestSignIn)
-	if !authResult || err != nil {
+	// サインイン処理
+	token, err := a.usecase.SignInUsecase(requestSignIn)
+	if err != nil {
 		if apiError, ok := err.(*api.ApiError); ok {
 			api.ErrorrResponse(context, apiError.HttpStatusCode, apiError.ErrorMessage)
 		}
 		return
 	}
 	// レスポンス処理
-	context.JSON(http.StatusOK, gin.H{})
+	context.JSON(http.StatusOK, gin.H{"jwt-token": token})
 }

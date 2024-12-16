@@ -9,6 +9,7 @@ import (
 	cryptoutil "link-back-app/utils/crypto_util"
 	stringutil "link-back-app/utils/string_util"
 	timeutil "link-back-app/utils/time_util"
+	tokenutil "link-back-app/utils/token_util"
 	usersutil "link-back-app/utils/users_util"
 	"net/http"
 	"reflect"
@@ -21,7 +22,7 @@ const INIT_EMPLOYEE_CD = "000001"
 
 type AuthUsecase interface {
 	SignUpUsacase(signup authmodel.RequestSignUp) error
-	SignInUsecase(signin authmodel.RequstSignIn) (bool, error)
+	SignInUsecase(signin authmodel.RequstSignIn) (string, error)
 	LogicalDeleteLoginUsecase(employeeId string) error
 }
 
@@ -110,23 +111,28 @@ func (a *authUsecaseImpl) SignUpUsacase(signup authmodel.RequestSignUp) error {
 /**
  * サインイン処理
  **/
-func (a *authUsecaseImpl) SignInUsecase(signin authmodel.RequstSignIn) (bool, error) {
+func (a *authUsecaseImpl) SignInUsecase(signin authmodel.RequstSignIn) (string, error) {
 	// 社員IDに紐づくログイン情報を取得
 	login, err := a.authRepository.GetOneByKeyLoginRepository(signin.EmployeeId)
 	if err != nil {
-		return false, api.NewApiError(http.StatusInternalServerError, err.Error())
+		return "", api.NewApiError(http.StatusInternalServerError, err.Error())
 	}
 	var loginStruct authmodel.Login
 	// ログイン情報がない場合はエラー
 	if reflect.DeepEqual(loginStruct, login) {
-		return false, api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+		return "", api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 	}
 	// パスワード検証処理
 	err = cryptoutil.CompareHashAndPassword(login.Password, signin.Password)
 	if err != nil {
-		return false, api.NewApiError(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return "", api.NewApiError(http.StatusUnauthorized, err.Error())
 	}
-	return true, nil
+	// jwtトークンを生成
+	token, err := tokenutil.GenerateToken(login.EmployeeId)
+	if err != nil {
+		return "", api.NewApiError(http.StatusInternalServerError, err.Error())
+	}
+	return token, nil
 }
 
 /**
