@@ -30,14 +30,14 @@ type authHandlerImpl struct {
 func (a *authHandlerImpl) SignUpHandler(context *gin.Context) {
 	var requestSignUp authmodel.RequestSignUp
 	if err := context.ShouldBindJSON(&requestSignUp); err != nil {
-		api.ErrorrResponse(context, http.StatusBadRequest, err.Error())
+		api.AuthResponse(context, http.StatusBadRequest, false, "", "")
 		return
 	}
 	// サインアップ処理
 	err := a.usecase.SignUpUsacase(requestSignUp)
 	if err != nil {
 		if apiError, ok := err.(*api.ApiError); ok {
-			api.ErrorrResponse(context, apiError.HttpStatusCode, apiError.ErrorMessage)
+			api.AuthResponse(context, apiError.HttpStatusCode, false, "", apiError.ErrorMessage)
 		}
 		return
 	}
@@ -51,17 +51,17 @@ func (a *authHandlerImpl) SignUpHandler(context *gin.Context) {
 func (a *authHandlerImpl) SignInHandler(context *gin.Context) {
 	var requestSignIn authmodel.RequstSignIn
 	if err := context.ShouldBindJSON(&requestSignIn); err != nil {
-		api.ErrorrResponse(context, http.StatusBadRequest, err.Error())
+		api.AuthResponse(context, http.StatusBadRequest, false, "", err.Error())
 		return
 	}
 	// サインイン処理
 	token, err := a.usecase.SignInUsecase(requestSignIn)
 	if err != nil {
 		if apiError, ok := err.(*api.ApiError); ok {
-			api.ErrorrResponse(context, apiError.HttpStatusCode, apiError.ErrorMessage)
+			api.AuthResponse(context, apiError.HttpStatusCode, false, "", apiError.ErrorMessage)
 		}
 		return
 	}
 	// レスポンス処理
-	context.JSON(http.StatusOK, gin.H{"jwt-token": token})
+	api.AuthResponse(context, http.StatusOK, true, token, "")
 }

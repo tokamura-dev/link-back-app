@@ -6,12 +6,32 @@ import (
 	"link-back-app/handler/rest"
 	jwtauthmiddleware "link-back-app/middlewares/jwt_auth_middleware"
 	"link-back-app/usecase"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func GetApiRouter() *gin.Engine {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://0.0.0.0:5173",
+		},
+		// アクセス許可するHTTPメソッド
+		AllowMethods: []string{
+			"GET",
+			"POST",
+			"PUT",
+			"DELETE",
+		},
+		AllowHeaders: []string{
+			"Content-Type",
+			"Authorization",
+		}, AllowCredentials: false,
+		MaxAge: 24 * time.Hour,
+	}))
 
 	dbConnect := database.Connect()
 

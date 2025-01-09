@@ -115,12 +115,12 @@ func (a *authUsecaseImpl) SignInUsecase(signin authmodel.RequstSignIn) (string, 
 	// 社員IDに紐づくログイン情報を取得
 	login, err := a.authRepository.GetOneByKeyLoginRepository(signin.EmployeeId)
 	if err != nil {
-		return "", api.NewApiError(http.StatusInternalServerError, err.Error())
+		return "", api.NewApiError(http.StatusNotFound, "入力された社員IDは正しくありません。")
 	}
 	var loginStruct authmodel.Login
 	// ログイン情報がない場合はエラー
 	if reflect.DeepEqual(loginStruct, login) {
-		return "", api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+		return "", api.NewApiError(http.StatusNotFound, "入力された社員IDは正しくありません。")
 	}
 	// パスワード検証処理
 	err = cryptoutil.CompareHashAndPassword(login.Password, signin.Password)
@@ -147,7 +147,7 @@ func (a *authUsecaseImpl) LogicalDeleteLoginUsecase(employeeId string) error {
 	var loginStruct authmodel.Login
 	// ログイン情報がない場合はエラー
 	if reflect.DeepEqual(loginStruct, login) {
-		return api.NewApiError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+		return api.NewApiError(http.StatusNotFound, "入力された社員IDは正しくありません。")
 	}
 	tx := a.database.Begin()
 	timeNow := timeutil.GetTimeNow()
